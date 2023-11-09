@@ -5,12 +5,15 @@ pragma solidity ^0.8.0;
 //设置一个以美元为单位的最小提取
 import "./PriceConverter.sol";
 
+error NotOwner();
+
 contract FundMe{
     
     using PriceConverter for uint;
     // uint public number;
     //改成1e18是因为后面18位是小数
-    uint public minimumUsd = 50 * 1e18;
+    uint public constant MINIMUM_USD = 50 * 1e18;
+    //使用常量可以减少gas支出
 
     //创建一个地址的数组，用来存放所有发送资金的用户
     address[] public funders;
@@ -19,11 +22,11 @@ contract FundMe{
     mapping (address => uint) public addressToAmountFunded;
 
 
-    address public owner;
+    address public immutable i_owner;
     //构造函数在创建合约的那笔交易中被立刻调用了一次
     constructor(){
         //发起交易的钱包地址，在这里就是部署合约的地址人
-        owner = msg.sender;
+        i_owner = msg.sender;
 
     }
 
@@ -31,9 +34,9 @@ contract FundMe{
         //1.如何将交易转向ETH
         // number = 5;
         //msg.value返回的是用户转账的ETH额度，单位是wei (18位的整数)。
-        // require(getConversionRate(msg.value) >= minimumUsd,"did't send zero");
+        // require(getConversionRate(msg.value) >= MINIMUM_USD,"did't send zero");
         //()里面不需要填值，因为msg.value会自动传入。
-        require(msg.value.getConversionRate() >= minimumUsd,"did't send zero");
+        require(msg.value.getConversionRate() >= MINIMUM_USD,"did't send zero");
         // number = 6;
 
         //msg.sender表示发送人的地址
@@ -72,9 +75,24 @@ contract FundMe{
     //modifier 一个可以直接在函数声明当中添加的关键词
 
     modifier onlyOwner{
-        require(msg.sender == owner,"Sender is not owner!");
+        // require(msg.sender == i_owner,"Sender is not owner!");
+        //这个语句当中返回的错误信息是字符串，占用存储空间，gas大
+
+        if(msg.sender != i_owner){
+            revert NotOwner();
+        }
         _;
     }
+
+
+    receive() external payable {
+        fund();
+     }
+
+
+     fallback() external payable { 
+        fund();
+     }
 
    
 }
